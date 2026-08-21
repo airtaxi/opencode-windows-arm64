@@ -4,7 +4,7 @@
 
 🌐 English | [한국어](README.ko.md)
 
-OpenCode Windows ARM64 is an unofficial automated build pipeline that produces Windows ARM64 binaries for [OpenCode](https://github.com/anomalyco/opencode), an AI-powered coding agent. It runs on GitHub Actions, polls the upstream repository for new releases every 6 hours, builds the ARM64 binary on a native Windows ARM runner, publishes a GitHub Release, and updates a Scoop bucket manifest for automatic updates.
+OpenCode Windows ARM64 is an unofficial automated build pipeline that produces Windows ARM64 binaries for [OpenCode](https://github.com/anomalyco/opencode), an AI-powered coding agent. It runs on GitHub Actions, polls the upstream repository for new releases every 6 hours, cross-compiles the ARM64 binary on a Linux runner, publishes a GitHub Release, and updates a Scoop bucket manifest for automatic updates.
 
 ## Disclaimer
 
@@ -33,7 +33,7 @@ Alternatively, download the binary from the [GitHub Releases](https://github.com
 ## How It Works
 
 1. **Scheduled check** — Every 6 hours, the workflow fetches the latest tag from the upstream OpenCode repository and compares it against the latest release in this repository.
-2. **Build** — If a newer tag is found (or a manual build is triggered), the workflow clones the tagged source, pins Bun to 1.4.0, installs dependencies, and builds the native ARM64 binary with `bun run build -- --single` on a native Windows ARM runner.
+2. **Build** — If a newer tag is found (or a manual build is triggered), the workflow clones the tagged source, pins Bun to 1.4.0, installs dependencies, and cross-compiles the ARM64 binary with `bun run build` on a Linux runner — the same approach used by the upstream release pipeline.
 3. **Release** — The binary is archived as a zip, a Scoop manifest is generated with the correct hash, and a GitHub Release is created.
 4. **Scoop update** — The Scoop bucket manifest is committed to the repository so `scoop update` picks up the new version automatically.
 
@@ -57,7 +57,7 @@ The workflow can be triggered manually from the Actions tab with the following o
 
 ## Requirements (for local builds)
 
-- Windows on ARM device (or a Windows ARM CI runner).
+- Windows on ARM device (for local Windows builds).
 - PowerShell 7 (`pwsh`).
 - [Bun](https://bun.sh) 1.4.0 or newer on `PATH`.
 - Visual Studio 2022 with the "Desktop development with C++" workload (ARM64 toolset).

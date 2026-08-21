@@ -4,7 +4,7 @@
 
 🌐 [English](README.md) | 한국어
 
-OpenCode Windows ARM64는 AI 코딩 에이전트인 [OpenCode](https://github.com/anomalyco/opencode)의 Windows ARM64 바이너리를 자동으로 생성하는 비공식 빌드 파이프라인입니다. GitHub Actions에서 실행되며, 업스트림 저장소의 새 릴리즈를 6시간마다 폴링하고, 네이티브 Windows ARM 러너에서 ARM64 바이너리를 빌드한 뒤 GitHub Release를 게시하고 Scoop bucket 매니페스트를 갱신하여 자동 업데이트를 지원합니다.
+OpenCode Windows ARM64는 AI 코딩 에이전트인 [OpenCode](https://github.com/anomalyco/opencode)의 Windows ARM64 바이너리를 자동으로 생성하는 비공식 빌드 파이프라인입니다. GitHub Actions에서 실행되며, 업스트림 저장소의 새 릴리즈를 6시간마다 폴링하고, 리눅스 러너에서 ARM64 바이너리를 크로스 컴파일한 뒤 GitHub Release를 게시하고 Scoop bucket 매니페스트를 갱신하여 자동 업데이트를 지원합니다.
 
 ## Disclaimer
 
@@ -33,7 +33,7 @@ scoop update opencode-arm64
 ## 작동 방식
 
 1. **정기 확인** — 6시간마다 워크플로우가 업스트림 OpenCode 저장소의 최신 태그를 가져와 이 저장소의 최신 릴리즈와 비교합니다.
-2. **빌드** — 새 태그가 발견되거나 수동 빌드가 트리거되면, 해당 태그의 소스를 클론하고 Bun을 1.4.0으로 고정한 뒤 의존성을 설치하고, 네이티브 Windows ARM 러너에서 `bun run build -- --single`로 ARM64 바이너리를 빌드합니다.
+2. **빌드** — 새 태그가 발견되거나 수동 빌드가 트리거되면, 해당 태그의 소스를 클론하고 Bun을 1.4.0으로 고정한 뒤 의존성을 설치하고, 업스트림 릴리즈 파이프라인과 동일한 방식으로 리눅스 러너에서 `bun run build`로 ARM64 바이너리를 크로스 컴파일합니다.
 3. **릴리즈** — 바이너리를 zip으로 아카이브하고 해시값이 포함된 Scoop 매니페스트를 생성한 뒤 GitHub Release를 만듭니다.
 4. **Scoop 업데이트** — Scoop bucket 매니페스트를 저장소에 커밋하여 `scoop update`가 새 버전을 자동으로 인식합니다.
 
@@ -57,7 +57,7 @@ Actions 탭에서 워크플로우를 수동으로 실행할 수 있으며, 다�
 
 ## 요구사항 (로컬 빌드 시)
 
-- Windows on ARM 장치 (또는 Windows ARM CI 러너).
+- Windows on ARM 장치 (로컬 Windows 빌드 시).
 - PowerShell 7 (`pwsh`).
 - [Bun](https://bun.sh) 1.4.0 이상.
 - "Desktop development with C++" 워크로드가 설치된 Visual Studio 2022 (ARM64 toolset 포함).
