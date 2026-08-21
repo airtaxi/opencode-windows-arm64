@@ -1,0 +1,14 @@
+{
+  "version": "1.18.20",
+  "description": "Unofficial Windows ARM64 build of OpenCode.",
+  "homepage": "https://github.com/airtaxi/opencode-windows-arm64",
+  "license": "MIT",
+  "architecture": {
+    "arm64": {
+      "url": "https://github.com/airtaxi/opencode-windows-arm64/releases/download/v1.18.20/opencode-windows-arm64.zip",
+      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "bin": "opencode.exe",
+  "notes": "This is an unofficial ARM64 build. OpenCode is an AI-powered coding agent."
+}

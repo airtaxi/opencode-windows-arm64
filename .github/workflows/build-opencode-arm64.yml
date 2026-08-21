@@ -1,0 +1,261 @@
+name: Build OpenCode ARM64
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Build even when the upstream tag is not newer than the latest release
+        required: false
+        type: boolean
+        default: false
+      tag_override:
+        description: Optional specific upstream tag to build (e.g. v1.18.20)
+        required: false
+        type: string
+        default: ""
+      release_tag_override:
+        description: Optional release tag to publish (e.g. v1.18.20.1). Defaults to the upstream tag.
+        required: false
+        type: string
+        default: ""
+      version_override:
+        description: Optional version embedded in the binary (e.g. 1.18.20). Defaults to the release tag without the leading v.
+        required: false
+        type: string
+        default: ""
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  check:
+    name: Check Upstream Tag
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.resolve.outputs.should_build }}
+      upstream_tag: ${{ steps.resolve.outputs.upstream_tag }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: previous_run
+        name: Stop Scheduled Runs After Failure
+        if: github.event_name == 'schedule'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $runs = gh run list `
+            --repo $env:GITHUB_REPOSITORY `
+            --workflow $env:GITHUB_WORKFLOW `
+            --status completed `
+            --limit 100 `
+            --json conclusion,databaseId,url `
+            | ConvertFrom-Json
+
+          foreach ($run in $runs) {
+            $jobs = gh run view $run.databaseId `
+              --repo $env:GITHUB_REPOSITORY `
+              --json jobs `
+              | ConvertFrom-Json
+
+            $buildJob = $jobs.jobs | Where-Object { $_.name -eq "Build And Release" } | Select-Object -First 1
+            if (-not $buildJob -or $buildJob.conclusion -eq "skipped") {
+              continue
+            }
+
+            if ($buildJob.conclusion -eq "failure") {
+              "continue=false" >> $env:GITHUB_OUTPUT
+              "Latest completed build job failed: $($run.url)" >> $env:GITHUB_STEP_SUMMARY
+              exit 0
+            }
+
+            break
+          }
+
+          "continue=true" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/checkout@v6
+        if: steps.previous_run.outputs.continue != 'false'
+
+      - id: resolve
+        name: Resolve Latest Tag
+        if: steps.previous_run.outputs.continue != 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_override || '' }}
+          RELEASE_TAG_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag_override || '' }}
+          VERSION_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.version_override || '' }}
+        run: |
+          .\scripts\Get-OpenCodeLatestTag.ps1 -Repo $env:GITHUB_REPOSITORY -TagOverride $env:TAG_OVERRIDE -ReleaseTagOverride $env:RELEASE_TAG_OVERRIDE -VersionOverride $env:VERSION_OVERRIDE
+
+  build:
+    name: Build And Release
+    needs: check
+    if: needs.check.outputs.should_build == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.tag_override != '' || inputs.release_tag_override != '' || inputs.version_override != ''))
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+
+      - name: Clone OpenCode
+        shell: pwsh
+        env:
+          UPSTREAM_TAG: ${{ needs.check.outputs.upstream_tag }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          git clone --branch $env:UPSTREAM_TAG --depth 1 https://github.com/anomalyco/opencode.git opencode
+
+      - name: Patch package.json (pin Bun 1.4.0)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pkgPath = "opencode/package.json"
+          if (-not (Test-Path $pkgPath)) { throw "[FAIL] package.json not found (upstream changed?)" }
+          $c = Get-Content $pkgPath -Raw
+          $pattern = '"packageManager"\s*:\s*"bun@([^"]+)"'
+          $m = [regex]::Match($c, $pattern)
+          if (-not $m.Success) { throw "[FAIL] packageManager field not found in package.json (upstream changed?)" }
+          $current = $m.Groups[1].Value
+          $currentVersion = $current -replace '^v',''
+          $ok = $false
+          try { $ok = [version]$currentVersion -ge [version]"1.4.0" } catch { $ok = $false }
+          if ($ok) {
+            Write-Host "[OK] packageManager bun@$current is already >= 1.4.0, keeping it"
+          } else {
+            $c = $c.Replace($m.Value, '"packageManager": "bun@1.4.0"')
+            Set-Content $pkgPath $c -NoNewline
+            Write-Host "[OK] Patched packageManager bun@$current -> bun@1.4.0"
+          }
+
+      - name: Patch bunfig.toml (minimumReleaseAge excludes)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bunfigPath = "opencode/bunfig.toml"
+          if (-not (Test-Path $bunfigPath)) { throw "[FAIL] bunfig.toml not found (upstream changed?)" }
+          $c = Get-Content $bunfigPath -Raw
+          if ($c -match '"@types/bun"') {
+            Write-Host "[OK] bunfig.toml already excludes @types/bun, skipping"
+          } else {
+            $pattern = 'minimumReleaseAgeExcludes\s*=\s*\[([^\]]*)\]'
+            $m = [regex]::Match($c, $pattern)
+            if (-not $m.Success) { throw "[FAIL] minimumReleaseAgeExcludes not found in bunfig.toml (upstream changed?)" }
+            $c = $c.Substring(0, $m.Groups[1].Index) + $m.Groups[1].Value + ', "@types/bun", "bun-types"' + $c.Substring($m.Groups[1].Index + $m.Groups[1].Length)
+            Set-Content $bunfigPath $c -NoNewline
+            Write-Host "[OK] Patched bunfig.toml (added @types/bun, bun-types to minimumReleaseAgeExcludes)"
+          }
+
+      - name: Install Dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Push-Location opencode
+          bun install --frozen-lockfile --linker hoisted
+          Pop-Location
+
+      - name: Build ARM64 Binary
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          Push-Location opencode/packages/opencode
+          $env:OPENCODE_VERSION = $env:VERSION
+          bun run build -- --single
+          Pop-Location
+
+      - name: Collect Output
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $exe = "opencode/dist/opencode-windows-arm64/bin/opencode.exe"
+          if (-not (Test-Path $exe)) { throw "opencode.exe not found" }
+          Copy-Item $exe -Destination "dist/opencode.exe" -Force
+          Write-Host "Binary: opencode.exe"
+          Write-Host "Size: $([math]::Round((Get-Item dist/opencode.exe).Length / 1MB, 1)) MB"
+
+      - name: Archive Binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Push-Location dist
+          7z a opencode-windows-arm64.zip opencode.exe
+          Pop-Location
+
+      - name: Generate Scoop Manifest
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.check.outputs.release_tag }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath .\dist\opencode-windows-arm64.zip).Hash.ToLowerInvariant()
+          $url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG/opencode-windows-arm64.zip"
+          New-Item -ItemType Directory -Path .\bucket -Force | Out-Null
+          $manifest = [ordered]@{
+            version = $env:VERSION
+            description = "Unofficial Windows ARM64 build of OpenCode."
+            homepage = "https://github.com/$env:GITHUB_REPOSITORY"
+            license = "MIT"
+            architecture = [ordered]@{
+              arm64 = [ordered]@{
+                url = $url
+                hash = $hash
+              }
+            }
+            bin = "opencode.exe"
+            notes = "This is an unofficial ARM64 build. OpenCode is an AI-powered coding agent."
+          }
+
+          $json = $manifest | ConvertTo-Json -Depth 8
+          $json | Set-Content -LiteralPath .\opencode-arm64.json -Encoding UTF8
+          $json | Set-Content -LiteralPath .\bucket\opencode-arm64.json -Encoding UTF8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencode-arm64-${{ needs.check.outputs.release_tag }}
+          path: |
+            dist/opencode-windows-arm64.zip
+            opencode-arm64.json
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.check.outputs.release_tag }}
+          UPSTREAM_TAG: ${{ needs.check.outputs.upstream_tag }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          $notes = @"
+          Unofficial Windows ARM64 build of OpenCode $env:VERSION.
+
+          Source: anomalyco/opencode $env:UPSTREAM_TAG
+          Built on GitHub Actions (windows-11-arm runner).
+          "@
+
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --yes --cleanup-tag
+          }
+
+          gh release create $env:RELEASE_TAG dist/opencode-windows-arm64.zip opencode-arm64.json --title $env:RELEASE_TAG --notes $notes
+
+      - name: Commit Scoop Manifest
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.check.outputs.release_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket/opencode-arm64.json
+          git commit -m "Update Scoop manifest for OpenCode $env:RELEASE_TAG"
+          git push

@@ -1,0 +1,15 @@
+opencode/
+dist/
+work/
+build/
+.tools/
+*.exe
+*.7z
+*.zip
+*.msi
+*.msix
+*.appx
+*.msixbundle
+*.appxbundle
+*.cer
+*.pfx
