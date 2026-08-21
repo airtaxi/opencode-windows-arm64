@@ -178,7 +178,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          $exe = "opencode/dist/opencode-windows-arm64/bin/opencode.exe"
+          $exe = "opencode/packages/opencode/dist/opencode-windows-arm64/bin/opencode.exe"
           if (-not (Test-Path $exe)) { throw "opencode.exe not found" }
           Copy-Item $exe -Destination "dist/opencode.exe" -Force
           Write-Host "Binary: opencode.exe"
