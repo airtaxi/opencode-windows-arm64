@@ -6,7 +6,7 @@
   "architecture": {
     "arm64": {
       "url": "https://github.com/airtaxi/opencode-windows-arm64/releases/download/v1.18.20/opencode-windows-arm64.zip",
-      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+      "hash": "26a5dc3b8e217ff2af225e3f8eb01c1a5f8b8e70b7769436137b30feed07f1a0"
     }
   },
   "bin": "opencode.exe",
