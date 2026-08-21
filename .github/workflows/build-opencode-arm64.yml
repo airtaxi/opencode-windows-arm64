@@ -98,7 +98,7 @@ jobs:
     name: Build And Release
     needs: check
     if: needs.check.outputs.should_build == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.tag_override != '' || inputs.release_tag_override != '' || inputs.version_override != ''))
-    runs-on: windows-11-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -159,7 +159,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           Push-Location opencode
-          bun install --frozen-lockfile --linker hoisted
+          bun install --frozen-lockfile
           Pop-Location
 
       - name: Build ARM64 Binary
@@ -170,7 +170,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           Push-Location opencode/packages/opencode
           $env:OPENCODE_VERSION = $env:VERSION
-          bun run build -- --single
+          bun run build
           Pop-Location
 
       - name: Collect Output
@@ -185,12 +185,10 @@ jobs:
           Write-Host "Size: $([math]::Round((Get-Item dist/opencode.exe).Length / 1MB, 1)) MB"
 
       - name: Archive Binary
-        shell: pwsh
+        shell: bash
         run: |
-          $ErrorActionPreference = "Stop"
-          Push-Location dist
-          7z a opencode-windows-arm64.zip opencode.exe
-          Pop-Location
+          cd dist
+          zip -r opencode-windows-arm64.zip opencode.exe
 
       - name: Generate Scoop Manifest
         shell: pwsh
@@ -239,7 +237,7 @@ jobs:
           Unofficial Windows ARM64 build of OpenCode $env:VERSION.
 
           Source: anomalyco/opencode $env:UPSTREAM_TAG
-          Built on GitHub Actions (windows-11-arm runner).
+          Built on GitHub Actions (ubuntu-latest runner, cross-compiled).
           "@
 
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
