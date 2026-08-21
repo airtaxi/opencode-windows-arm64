@@ -1,4 +1,4 @@
-name: Build OpenCode ARM64
+name: Build OpenCode ARM64 v2
 
 on:
   workflow_dispatch:
