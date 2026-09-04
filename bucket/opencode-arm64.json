@@ -1,12 +1,12 @@
 {
-  "version": "1.18.27",
+  "version": "1.18.28",
   "description": "Unofficial Windows ARM64 build of OpenCode.",
   "homepage": "https://github.com/airtaxi/opencode-windows-arm64",
   "license": "MIT",
   "architecture": {
     "arm64": {
-      "url": "https://github.com/airtaxi/opencode-windows-arm64/releases/download/v1.18.27/opencode-windows-arm64.zip",
-      "hash": "4270995e8221dc5a34aa0f0c234b394d4b75f9ab09ecf6e3b07d63057045ae7c"
+      "url": "https://github.com/airtaxi/opencode-windows-arm64/releases/download/v1.18.28/opencode-windows-arm64.zip",
+      "hash": "55e15887877164dd6e2bb88adf85f311eaf7206807092ae8c8fb0ff9209573d9"
     }
   },
   "bin": "opencode.exe",
