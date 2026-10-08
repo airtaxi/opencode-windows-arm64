@@ -4,16 +4,17 @@
 Resolve the latest OpenCode tag and decide whether a build is needed.
 
 .DESCRIPTION
-Fetches the latest tag from the upstream OpenCode repository and compares it
-against the latest GitHub release in this repository. Sets GitHub Actions outputs
-for use by subsequent workflow steps.
+Fetches the latest published GitHub release from the upstream OpenCode repository
+and compares it against the latest GitHub release in this repository. Drafts,
+pre-releases, and tags without a GitHub release are ignored. Sets GitHub Actions
+outputs for use by subsequent workflow steps.
 
 .PARAMETER Repo
 The GitHub repository in owner/repo format (e.g. "airtaxi/opencode-windows-arm64").
 Defaults to $env:GITHUB_REPOSITORY.
 
-.PARAMETER UpstreamUrl
-Git remote URL for the OpenCode source. Defaults to the public HTTPS URL.
+.PARAMETER UpstreamRepo
+The upstream OpenCode GitHub repository in owner/repo format. Defaults to "anomalyco/opencode".
 
 .PARAMETER TagOverride
 Force a specific upstream tag to clone (e.g. "v1.18.20"). Skips upstream lookup.
@@ -28,7 +29,7 @@ Force the version embedded in the binary (e.g. "1.18.20"). Defaults to the relea
 [CmdletBinding()]
 param(
     [string]$Repo = $env:GITHUB_REPOSITORY,
-    [string]$UpstreamUrl = "https://github.com/anomalyco/opencode.git",
+    [string]$UpstreamRepo = "anomalyco/opencode",
     [string]$TagOverride = "",
     [string]$ReleaseTagOverride = "",
     [string]$VersionOverride = ""
@@ -37,16 +38,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-LatestTag {
-    param([string]$Remote)
-    $tags = & git ls-remote --tags $Remote 2>$null
+function Get-LatestUpstreamReleaseTag {
+    param([string]$RepoName)
+    # Only published releases count; tags pushed without a GitHub release are skipped.
+    $tags = gh release list --repo $RepoName --exclude-drafts --exclude-pre-releases --limit 100 --json tagName --jq ".[].tagName" 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $tags) {
-        throw "Failed to fetch tags from $Remote"
+        throw "Failed to fetch releases from $RepoName"
     }
-    $tagLines = $tags | Where-Object { $_ -match 'refs/tags/v\d+\.\d+\.\d+$' }
-    $validTags = @($tagLines | ForEach-Object { ($_ -split '\s+')[1] -replace 'refs/tags/','' } |
-        Where-Object { $_ -match '^v\d+\.\d+\.\d+$' })
-    if ($validTags.Count -eq 0) { throw "No version tags found in $Remote" }
+    $validTags = @($tags | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' })
+    if ($validTags.Count -eq 0) { throw "No version releases found in $RepoName" }
     $latest = ($validTags |
         Sort-Object { try { [version]($_ -replace '^v','') } catch { [version]'0.0.0' } } -Descending)[0]
     return $latest
@@ -68,8 +68,8 @@ function Get-LatestReleaseTag {
 
 # -- Resolve upstream tag ----------------------------------------------
 if ([string]::IsNullOrWhiteSpace($TagOverride)) {
-    Write-Host "Fetching latest tag from upstream: $UpstreamUrl"
-    $upstreamTag = Get-LatestTag -Remote $UpstreamUrl
+    Write-Host "Fetching latest release from upstream: $UpstreamRepo"
+    $upstreamTag = Get-LatestUpstreamReleaseTag -RepoName $UpstreamRepo
 } else {
     Write-Host "Using tag override: $TagOverride"
     $upstreamTag = $TagOverride.Trim()

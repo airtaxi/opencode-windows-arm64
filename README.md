@@ -32,8 +32,8 @@ Alternatively, download the binary from the [GitHub Releases](https://github.com
 
 ## How It Works
 
-1. **Scheduled check** — Every 6 hours, the workflow fetches the latest tag from the upstream OpenCode repository and compares it against the latest release in this repository.
-2. **Build** — If a newer tag is found (or a manual build is triggered), the workflow clones the tagged source, pins Bun to 1.4.0, installs dependencies, and cross-compiles the ARM64 binary with `bun run build` on a Linux runner — the same approach used by the upstream release pipeline.
+1. **Scheduled check** — Every 6 hours, the workflow fetches the latest published GitHub release from the upstream OpenCode repository and compares it against the latest release in this repository. Drafts, pre-releases, and tags without a GitHub release are ignored.
+2. **Build** — If a newer release is found (or a manual build is triggered), the workflow clones the tagged source, pins Bun to 1.4.0, installs dependencies, and cross-compiles the ARM64 binary with `bun run build` on a Linux runner — the same approach used by the upstream release pipeline.
 3. **Release** — The binary is archived as a zip, a Scoop manifest is generated with the correct hash, and a GitHub Release is created.
 4. **Scoop update** — The Scoop bucket manifest is committed to the repository so `scoop update` picks up the new version automatically.
 
