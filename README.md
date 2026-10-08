@@ -6,6 +6,12 @@
 
 OpenCode Windows ARM64 is an unofficial automated build pipeline that produces Windows ARM64 binaries for [OpenCode](https://github.com/anomalyco/opencode), an AI-powered coding agent. It runs on GitHub Actions, polls the upstream repository for new releases every 6 hours, cross-compiles the ARM64 binary on a Linux runner, publishes a GitHub Release, and updates a Scoop bucket manifest for automatic updates.
 
+## Project Status
+
+The latest stable OpenCode release line is 1.18.x, which still builds with a Bun version older than 1.4. This repository exists to rebuild those releases with Bun 1.4 so they run on Windows ARM64.
+
+Starting with 2.x, OpenCode itself builds with Bun 1.4 or newer, so the official Windows ARM64 build works without this pipeline. However, 2.x has only been tagged so far and has no stable release yet. Once the first stable 2.x release is published, this repository will be archived.
+
 ## Disclaimer
 
 This project is not affiliated with, endorsed by, sponsored by, or officially supported by the OpenCode team. It is an independent community tool for Windows on ARM compatibility.

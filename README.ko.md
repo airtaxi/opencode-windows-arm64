@@ -6,6 +6,12 @@
 
 OpenCode Windows ARM64는 AI 코딩 에이전트인 [OpenCode](https://github.com/anomalyco/opencode)의 Windows ARM64 바이너리를 자동으로 생성하는 비공식 빌드 파이프라인입니다. GitHub Actions에서 실행되며, 업스트림 저장소의 새 릴리즈를 6시간마다 폴링하고, 리눅스 러너에서 ARM64 바이너리를 크로스 컴파일한 뒤 GitHub Release를 게시하고 Scoop bucket 매니페스트를 갱신하여 자동 업데이트를 지원합니다.
 
+## 프로젝트 상태
+
+현재 OpenCode의 최신 정식 릴리즈 라인은 1.18.x이며, 이 버전은 여전히 1.4 미만의 Bun으로 빌드됩니다. 이 저장소는 해당 릴리즈를 Bun 1.4로 다시 빌드하여 Windows ARM64에서 작동하도록 만들기 위해 존재합니다.
+
+OpenCode는 2.x부터 자체적으로 Bun 1.4 이상을 사용하므로, 이 파이프라인을 거치지 않아도 공식 Windows ARM64 빌드가 정상적으로 작동합니다. 다만 2.x는 아직 태그만 존재하고 정식 릴리즈는 나오지 않은 상태입니다. 2.x의 첫 정식 릴리즈가 게시되면 이 저장소는 아카이브될 예정입니다.
+
 ## Disclaimer
 
 이 프로젝트는 OpenCode 팀과 제휴 관계가 없으며, 보증하거나 후원하거나 공식 지원하는 프로젝트가 아닙니다. Windows on ARM 호환성을 위한 독립 커뮤니티 도구입니다.
